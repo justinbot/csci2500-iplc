@@ -173,9 +173,11 @@ void iplc_sim_init(int index, int blocksize, int assoc) {
     printf("   BlockOffSetBits: %d \n", cache_blockoffsetbits);
     printf("   CacheSize: %lu \n", cache_size);
 
-    if (cache_size > MAX_CACHE_SIZE) {
-        printf("Cache too big. Great than MAX SIZE of %d .... \n", MAX_CACHE_SIZE);
-        exit(-1);
+    while (cache_size > MAX_CACHE_SIZE) {
+        //printf("Cache too big. Great than MAX SIZE of %d .... \n", MAX_CACHE_SIZE);
+        //exit(-1);
+        cache_size = assoc * (1 << index) * ((32 * blocksize) + 33 - index - cache_blockoffsetbits);
+        index--;
     }
 
     cache = (cache_line_t *) malloc((sizeof(cache_line_t) * 1 << index));
@@ -205,8 +207,18 @@ void iplc_sim_init(int index, int blocksize, int assoc) {
  * and make sure that is now our Most Recently Used (MRU) entry.
  */
 void iplc_sim_LRU_replace_on_miss(int index, int tag) {
-    /* You must implement this function */
     // TODO(Justin)
+    // Item was missed, add it in most recently used position (0)
+    int i = 0;
+
+    // Iterate to shift back items in set
+    for (i = cache_assoc - 1; i > 0; i--) {
+        cache[index].cache_items[i] = cache[index].cache_items[i - 1];
+    }
+
+    // Add missed item in most recently used position
+    cache[index].cache_items[0].valid_bit = 1;
+    cache[index].cache_items[0].tag = tag;
 }
 
 /*
@@ -214,8 +226,18 @@ void iplc_sim_LRU_replace_on_miss(int index, int tag) {
  * information in the cache.
  */
 void iplc_sim_LRU_update_on_hit(int index, int assoc_entry) {
-    /* You must implement this function */
     // TODO(Justin)
+    // Item was hit, move it to most recently used position (0)
+    int i = 0;
+    cache_item_t hit_item = cache[index].cache_items[assoc_entry];
+
+    // Iterate to shift back items in set ahead of the hit entry
+    for (i = assoc_entry; i > 0; i--) {
+        cache[index].cache_items[i] = cache[index].cache_items[i - 1];
+    }
+
+    // Add hit item in most recently used position
+    cache[index].cache_items[0] = hit_item;
 }
 
 /*
@@ -225,23 +247,46 @@ void iplc_sim_LRU_update_on_hit(int index, int assoc_entry) {
  * desired index.  In that case we will also need to call the LRU functions.
  */
 int iplc_sim_trap_address(unsigned int address) {
+    // TODO(Justin)
     int i = 0, index = 0;
     int tag = 0;
     int hit = 0;
-
-    // TODO(Justin)
 
     // Update counter statistics
     cache_access++;
 
     // index = block_number % set_count, block_number = address without offset bits
     index = (address >> cache_blockoffsetbits) % (1 << cache_index);
+
     // tag = address without offset and index bits
     tag = address >> (cache_blockoffsetbits + cache_index);
 
     // Search the set at index for this value to determine hit or miss
     for (i = 0; i < cache_assoc; i++) {
-        if (cache[index])
+        // Cache hit is a valid entry with this tag
+        if (cache[index].cache_items[i].valid_bit && cache[index].cache_items[i].tag == tag) {
+            hit = 1;
+            cache_hit++;
+
+            if (cache_assoc > 1) {
+                // If cache is associative, apply least recently used
+                iplc_sim_LRU_update_on_hit(index, i);
+            }
+            break;
+        }
+    }
+
+    if (!hit) {
+        cache_miss++;
+
+        if (cache_assoc > 1) {
+            // If cache is associative, apply least recently used
+            iplc_sim_LRU_replace_on_miss(index, tag);
+        } else {
+            // Otherwise, place this item in the set
+            cache[index].cache_items[0].valid_bit = 1;
+            cache[index].cache_items[0].tag = tag;
+        }
     }
 
     /* expects you to return 1 for hit, 0 for miss */
