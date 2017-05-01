@@ -359,15 +359,11 @@ void iplc_sim_dump_pipeline() {
  * Then push the contents of our various pipeline stages through the pipeline.
  */
 void iplc_sim_push_pipeline_stage() {
-    //TODO ireland
-
-
     int i;
     int data_hit = 1;
 
     /* 1. Count WRITEBACK stage is "retired" -- This I'm giving you */
     if (pipeline[WRITEBACK].instruction_address) {
-        instruction_count++;
         if (debug)
             printf("DEBUG: Retired Instruction at 0x%x, Type %d, at Time %u \n",
                    pipeline[WRITEBACK].instruction_address, pipeline[WRITEBACK].itype, pipeline_cycles);
@@ -377,6 +373,25 @@ void iplc_sim_push_pipeline_stage() {
     if (pipeline[DECODE].itype == BRANCH) {
         int branch_taken = 0;
         ++branch_count;
+
+        //check whether branch taken/not taken
+        if ((pipeline[FETCH].instruction_address != 0) && (pipeline[FETCH].instruction_address - pipeline[DECODE].instruction_address != 4)){
+            branch_taken = 1;
+            printf("DEBUG: Branch Taken: FETCH addr = 0x%x, DECODE instr addr = 0x%x  \n",
+                   pipeline[FETCH].instruction_address, pipeline[DECODE].instruction_address);
+        }
+
+        if((pipeline[FETCH].instruction_address != 0) && (branch_predict_taken == branch_taken)){       //if branch prediction correct
+            ++correct_branch_predictions;
+        }
+        else{
+            //push pipeline & insert NOP
+            ++pipeline_cycles;
+            pipeline[WRITEBACK] = pipeline[MEM];
+            pipeline[MEM] = pipeline[ALU];
+            pipeline[ALU] = pipeline[DECODE];
+            bzero(&(pipeline[DECODE]), sizeof(pipeline_t));
+        }
     }
 
     /* 3. Check for LW delays due to use in ALU stage and if data hit/miss
@@ -384,10 +399,45 @@ void iplc_sim_push_pipeline_stage() {
      */
     if (pipeline[MEM].itype == LW) {
         int inserted_nop = 0;
+
+        //check if data hit
+        data_hit = iplc_sim_trap_address(pipeline[MEM].stage.lw.data_address);
+        if(data_hit){
+            printf("DATA HIT:\t Address 0x%x \n",pipeline[MEM].stage.lw.data_address);
+        }
+        else{
+            printf("DATA MISS:\t Address 0x%x \n",pipeline[MEM].stage.lw.data_address);
+            pipeline_cycles += CACHE_MISS_DELAY - 1; //subtract 1 for this instruction
+        }
+
+        // check if ALU stage using regs from MEM
+        if(pipeline[ALU].itype == RTYPE){
+            if((pipeline[ALU].stage.rtype.reg1 == pipeline[MEM].stage.lw.dest_reg) || ((pipeline[ALU].stage.rtype.reg2_or_constant == pipeline[MEM].stage.lw.dest_reg) && (pipeline[ALU].stage.rtype.instruction[strlen(pipeline[ALU].stage.rtype.instruction) - 1] != 'i'))){
+                inserted_nop = 1;
+                //push pipeline & insert NOP
+                ++pipeline_cycles;
+                pipeline[WRITEBACK] = pipeline[MEM];
+                bzero(&(pipeline[MEM]), sizeof(pipeline_t));
+            }
+        }
+
+        if(!data_hit && inserted_nop){
+            --pipeline_cycles;
+        }
     }
 
-    /* 4. Check for SW mem acess and data miss .. add delay cycles if needed */
+    /* 4. Check for SW mem access and data miss .. add delay cycles if needed */
     if (pipeline[MEM].itype == SW) {
+
+        //check if data hit
+        data_hit = iplc_sim_trap_address(pipeline[MEM].stage.sw.data_address);
+        if(data_hit){
+            printf("DATA HIT:\t Address 0x%x \n",pipeline[MEM].stage.sw.data_address);
+        }
+        else{
+            printf("DATA MISS:\t Address 0x%x \n",pipeline[MEM].stage.sw.data_address);
+            pipeline_cycles += CACHE_MISS_DELAY - 1; //subtract 1 for this instruction
+        }
     }
 
     /* 5. Increment pipe_cycles 1 cycle for normal processing */
@@ -525,6 +575,7 @@ void iplc_sim_parse_instruction(char *buffer) {
     }
 
     instruction_hit = iplc_sim_trap_address(instruction_address);
+    instruction_count++; //it makes more sense to count instructions here...?
 
     // if a MISS, then push current instruction thru pipeline
     if (!instruction_hit) {
