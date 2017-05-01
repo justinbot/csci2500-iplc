@@ -260,6 +260,7 @@ int iplc_sim_trap_address(unsigned int address) {
 
     // tag = address without offset and index bits
     tag = address >> (cache_blockoffsetbits + cache_index);
+    printf("Address %x: Tag= %x, Index= %d \n", address, tag, index);
 
     // Search the set at index for this value to determine hit or miss
     for (i = 0; i < cache_assoc; i++) {
