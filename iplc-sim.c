@@ -413,7 +413,7 @@ void iplc_sim_push_pipeline_stage() {
 
         // check if ALU stage using regs from MEM
         if(pipeline[ALU].itype == RTYPE){
-            if((pipeline[ALU].stage.rtype.reg1 == pipeline[MEM].stage.lw.dest_reg) || ((pipeline[ALU].stage.rtype.reg2_or_constant == pipeline[MEM].stage.lw.dest_reg) && (pipeline[ALU].stage.rtype.instruction[strlen(pipeline[ALU].stage.rtype.instruction) - 1] != 'i'))){
+            if((pipeline[ALU].stage.rtype.reg1 == pipeline[MEM].stage.lw.dest_reg) || (pipeline[ALU].stage.rtype.reg2_or_constant == pipeline[MEM].stage.lw.dest_reg)){
                 inserted_nop = 1;
                 //push pipeline & insert NOP
                 ++pipeline_cycles;
