@@ -385,7 +385,7 @@ void iplc_sim_push_pipeline_stage() {
         if((pipeline[FETCH].instruction_address != 0) && (branch_predict_taken == branch_taken)){       //if branch prediction correct
             ++correct_branch_predictions;
         }
-        else{
+        else if(pipeline[FETCH].instruction_address != 0){               //if prediction incorrect
             //push pipeline & insert NOP
             ++pipeline_cycles;
             pipeline[WRITEBACK] = pipeline[MEM];
