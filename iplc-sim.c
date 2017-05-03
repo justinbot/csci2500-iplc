@@ -61,6 +61,8 @@ typedef struct cache_line {
     // consider a method for handling varying levels of associativity
     // consider a method for selecting which item in the cache is going to be replaced
 
+
+    // The set of items in the cache line (eg. 2 if 2-way associative)
     cache_item_t *cache_items;
 
 } cache_line_t;
@@ -190,6 +192,7 @@ void iplc_sim_init(int index, int blocksize, int assoc) {
         // Allocate and initialize items for each cache_line
         cache[i].cache_items = (cache_item_t *) malloc((sizeof(cache_item_t) * assoc));
         for (j = 0; j < cache_assoc; j++) {
+            // Initialize all items to empty
             cache[i].cache_items[j].valid_bit = 0;
             cache[i].cache_items[j].tag = 0;
         }
@@ -252,7 +255,6 @@ int iplc_sim_trap_address(unsigned int address) {
     int tag = 0;
     int hit = 0;
 
-    // Update counter statistics
     cache_access++;
 
     // index = block_number % set_count, block_number = address without offset bits
@@ -266,6 +268,7 @@ int iplc_sim_trap_address(unsigned int address) {
     for (i = 0; i < cache_assoc; i++) {
         // Cache hit is a valid entry with this tag
         if (cache[index].cache_items[i].valid_bit && cache[index].cache_items[i].tag == tag) {
+            // Cache hit...
             hit = 1;
             cache_hit++;
 
@@ -278,6 +281,7 @@ int iplc_sim_trap_address(unsigned int address) {
     }
 
     if (!hit) {
+        // Cache miss...
         cache_miss++;
 
         if (cache_assoc > 1) {
