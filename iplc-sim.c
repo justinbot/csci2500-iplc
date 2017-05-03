@@ -370,6 +370,7 @@ void iplc_sim_push_pipeline_stage() {
 
     /* 1. Count WRITEBACK stage is "retired" -- This I'm giving you */
     if (pipeline[WRITEBACK].instruction_address) {
+        instruction_count++;
         if (debug)
             printf("DEBUG: Retired Instruction at 0x%x, Type %d, at Time %u \n",
                    pipeline[WRITEBACK].instruction_address, pipeline[WRITEBACK].itype, pipeline_cycles);
@@ -397,6 +398,9 @@ void iplc_sim_push_pipeline_stage() {
             pipeline[MEM] = pipeline[ALU];
             pipeline[ALU] = pipeline[DECODE];
             bzero(&(pipeline[DECODE]), sizeof(pipeline_t));
+            if (pipeline[WRITEBACK].instruction_address) {  //retire new writeback stage
+                instruction_count++;
+            }
         }
     }
 
@@ -424,6 +428,9 @@ void iplc_sim_push_pipeline_stage() {
                 ++pipeline_cycles;
                 pipeline[WRITEBACK] = pipeline[MEM];
                 bzero(&(pipeline[MEM]), sizeof(pipeline_t));
+                if (pipeline[WRITEBACK].instruction_address) {      //retire new writeback stage
+                    instruction_count++;
+                }
             }
         }
 
@@ -581,7 +588,6 @@ void iplc_sim_parse_instruction(char *buffer) {
     }
 
     instruction_hit = iplc_sim_trap_address(instruction_address);
-    instruction_count++; //it makes more sense to count instructions here...?
 
     // if a MISS, then push current instruction thru pipeline
     if (!instruction_hit) {
