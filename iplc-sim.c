@@ -360,7 +360,8 @@ void iplc_sim_dump_pipeline() {
  * Then push the contents of our various pipeline stages through the pipeline.
  */
 void iplc_sim_push_pipeline_stage() {
-    int i;
+    //TODO(ireland)
+
     int data_hit = 1;
 
     /* 1. Count WRITEBACK stage is "retired" -- This I'm giving you */
