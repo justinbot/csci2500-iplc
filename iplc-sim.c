@@ -168,19 +168,31 @@ void iplc_sim_init(int index, int blocksize, int assoc) {
 
     cache_size = assoc * (1 << index) * ((32 * blocksize) + 33 - index - cache_blockoffsetbits);
 
+    if (cache_size > MAX_CACHE_SIZE) {
+        printf("Cache Configuration \n");
+        printf("   Index : %d bits or %d lines \n", cache_index, (1 << cache_index));
+        printf("   BlockSize: %d \n", cache_blocksize);
+        printf("   Associativity: %d \n", cache_assoc);
+        printf("   BlockOffSetBits: %d \n", cache_blockoffsetbits);
+        printf("   CacheSize: %lu \n", cache_size);
+        printf("Cache too big. Great than MAX SIZE of %d, decrementing Index...\n", MAX_CACHE_SIZE);
+    }
+
+    while (cache_size > MAX_CACHE_SIZE) {
+        //printf("Cache too big. Great than MAX SIZE of %d .... \n", MAX_CACHE_SIZE);
+        //exit(-1);
+
+        // Reduce index until cache size <= MAX_CACHE_SIZE
+        cache_size = assoc * (1 << index) * ((32 * blocksize) + 33 - index - cache_blockoffsetbits);
+        index--;
+    }
+
     printf("Cache Configuration \n");
     printf("   Index: %d bits or %d lines \n", cache_index, (1 << cache_index));
     printf("   BlockSize: %d \n", cache_blocksize);
     printf("   Associativity: %d \n", cache_assoc);
     printf("   BlockOffSetBits: %d \n", cache_blockoffsetbits);
     printf("   CacheSize: %lu \n", cache_size);
-
-    while (cache_size > MAX_CACHE_SIZE) {
-        //printf("Cache too big. Great than MAX SIZE of %d .... \n", MAX_CACHE_SIZE);
-        //exit(-1);
-        cache_size = assoc * (1 << index) * ((32 * blocksize) + 33 - index - cache_blockoffsetbits);
-        index--;
-    }
 
     cache = (cache_line_t *) malloc((sizeof(cache_line_t) * 1 << index));
 
